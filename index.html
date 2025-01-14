@@ -1,168 +1,209 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ruleta de Premios Corregida</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f4f4f4;
-            font-family: Arial, sans-serif;
-        }
-
-        #container {
-            text-align: center;
-        }
-
-        canvas {
-            border: 8px solid #333;
-            border-radius: 50%;
-            background-color: #fff;
-        }
-
-        #spinButton, .whatsapp-button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 18px;
-            background-color: #28a745;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        #spinButton:hover, .whatsapp-button:hover {
-            background-color: #218838;
-        }
-
-        #result {
-            margin-top: 20px;
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .whatsapp-button {
-            display: none;
-            text-decoration: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruleta de Premios 🎯</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+    }
+    p {
+      font-size: 16px;
+      color: #555;
+    }
+    #spin {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+    #spin:hover {
+      background-color: #0056b3;
+    }
+    canvas {
+      margin-top: 20px;
+      background-color: #fff;
+      border: 2px solid #000;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    #result-message {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+    #result-message a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+    #result-message a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-    <div id="container">
-        <canvas id="wheelCanvas" width="500" height="500"></canvas>
-        <br>
-        <button id="spinButton">¡Girar Ruleta!</button>
-        <div id="result"></div>
-        <a id="whatsappButton" class="whatsapp-button" href="#" target="_blank">Envía un Pantallazo con tu Resultado por WhatsApp</a>
-    </div>
+  <h1>¡Gira la Ruleta y Gana un Premio! 🎉</h1>
+  <p>Haz clic en el botón para descubrir tu premio exclusivo.</p>
+  <input type="button" value="GIRA LA RULETA 🎡" id="spin" />
+  <canvas id="canvas" width="500" height="500"></canvas>
+  <div id="result-message"></div>
 
-    <script>
-        const canvas = document.getElementById("wheelCanvas");
-        const ctx = canvas.getContext("2d");
-        const spinButton = document.getElementById("spinButton");
-        const resultDiv = document.getElementById("result");
-        const whatsappButton = document.getElementById("whatsappButton");
+  <script>
+    var options = [
+      "BECA 70%", 
+      "BECA 50%", 
+      "MATRÍCULA GRATIS", 
+      "CUPÓN DE REGALO", 
+      "BESTWORK USER", 
+      "CICLO GRATIS"
+    ];
+    
+    var startAngle = 0;
+    var arc = Math.PI / (options.length / 2);
+    var spinTimeout = null;
+    var spinArcStart = 10;
+    var spinTime = 0;
+    var spinTimeTotal = 0;
+    var ctx;
 
-        // Premios y configuración
-        const prizes = [
-            "BECA 70%",
-            "BECA 50%",
-            "TARJETA SESIONES",
-            "USUARIO BESTWORK",
-            "2 TARJETAS REGALO",
-            "MATRÍCULA COSTO CERO"
-        ];
+    document.getElementById("spin").addEventListener("click", spin);
 
-        const colors = ["#FF5733", "#33FFBD", "#FFC300", "#C70039", "#DAF7A6", "#900C3F"];
-        const totalSlices = prizes.length;
+    function byte2Hex(n) {
+      var nybHexString = "0123456789ABCDEF";
+      return String(nybHexString.substr((n >> 4) & 0x0F,1)) + nybHexString.substr(n & 0x0F,1);
+    }
 
-        let angle = 0;
-        let spinning = false;
+    function RGB2Color(r,g,b) {
+      return '#' + byte2Hex(r) + byte2Hex(g) + byte2Hex(b);
+    }
 
-        // Función para dibujar la ruleta
-        function drawWheel() {
-            const sliceAngle = (2 * Math.PI) / totalSlices;
+    function getColor(item, maxitem) {
+      var phase = 0;
+      var center = 128;
+      var width = 127;
+      var frequency = Math.PI*2/maxitem;
+      var red   = Math.sin(frequency*item+2+phase) * width + center;
+      var green = Math.sin(frequency*item+0+phase) * width + center;
+      var blue  = Math.sin(frequency*item+4+phase) * width + center;
+      return RGB2Color(red,green,blue);
+    }
 
-            for (let i = 0; i < totalSlices; i++) {
-                ctx.beginPath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.moveTo(250, 250);
-                ctx.arc(250, 250, 250, angle + i * sliceAngle, angle + (i + 1) * sliceAngle);
-                ctx.lineTo(250, 250);
-                ctx.fill();
-                ctx.closePath();
+    function drawRouletteWheel() {
+      var canvas = document.getElementById("canvas");
+      if (canvas.getContext) {
+        var outsideRadius = 200;
+        var textRadius = 160;
+        var insideRadius = 125;
 
-                // Dibujar el texto del premio
-                ctx.save();
-                ctx.translate(250, 250);
-                ctx.rotate(angle + (i + 0.5) * sliceAngle);
-                ctx.textAlign = "center";
-                ctx.font = "16px Arial";
-                ctx.fillStyle = "#fff";
-                ctx.fillText(prizes[i], 160, 10); // Posición ajustada
-                ctx.restore();
-            }
+        ctx = canvas.getContext("2d");
+        ctx.clearRect(0,0,500,500);
 
-            // Flecha indicadora
-            ctx.beginPath();
-            ctx.fillStyle = "red";
-            ctx.moveTo(250, 10);
-            ctx.lineTo(230, 40);
-            ctx.lineTo(270, 40);
-            ctx.closePath();
-            ctx.fill();
-        }
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
 
-        // Girar la ruleta
-        function spinWheel() {
-            if (spinning) return;
+        ctx.font = 'bold 14px Helvetica, Arial';
 
-            spinning = true;
-            let spinTime = 0;
-            const spinTimeTotal = Math.random() * 3000 + 3000; // Entre 3 y 6 segundos
-            const sliceAngle = (2 * Math.PI) / totalSlices; // Ángulo por premio
+        for(var i = 0; i < options.length; i++) {
+          var angle = startAngle + i * arc;
+          ctx.fillStyle = getColor(i, options.length);
 
-            function rotate() {
-                spinTime += 30;
-                if (spinTime >= spinTimeTotal) {
-                    spinning = false;
+          ctx.beginPath();
+          ctx.arc(250, 250, outsideRadius, angle, angle + arc, false);
+          ctx.arc(250, 250, insideRadius, angle + arc, angle, true);
+          ctx.stroke();
+          ctx.fill();
 
-                    // Asegurar ángulo final en [0, 2*PI]
-                    angle %= 2 * Math.PI;
+          ctx.save();
+          ctx.fillStyle = "black";
+          ctx.translate(250 + Math.cos(angle + arc / 2) * textRadius, 
+                        250 + Math.sin(angle + arc / 2) * textRadius);
+          ctx.rotate(angle + arc / 2 + Math.PI / 2);
+          var text = options[i];
+          // Split text into multiple lines for better fit
+          var lines = text.split(' ');
+          for (var j = 0; j < lines.length; j++) {
+            ctx.fillText(lines[j], -ctx.measureText(lines[j]).width / 2, j * 15 - 10);
+          }
+          ctx.restore();
+        } 
 
-                    // Calcular índice del premio con ajuste de centro
-                    const index = Math.floor((2 * Math.PI - angle + sliceAngle / 2) % (2 * Math.PI) / sliceAngle);
+        //Arrow
+        ctx.fillStyle = "black";
+        ctx.beginPath();
+        ctx.moveTo(250 - 4, 250 - (outsideRadius + 5));
+        ctx.lineTo(250 + 4, 250 - (outsideRadius + 5));
+        ctx.lineTo(250 + 4, 250 - (outsideRadius - 5));
+        ctx.lineTo(250 + 9, 250 - (outsideRadius - 5));
+        ctx.lineTo(250 + 0, 250 - (outsideRadius - 13));
+        ctx.lineTo(250 - 9, 250 - (outsideRadius - 5));
+        ctx.lineTo(250 - 4, 250 - (outsideRadius - 5));
+        ctx.lineTo(250 - 4, 250 - (outsideRadius + 5));
+        ctx.fill();
+      }
+    }
 
-                    const premio = prizes[index];
-                    resultDiv.textContent = `🎉 ¡Felicidades! Has ganado: ${premio} 🎉`;
+    function spin() {
+      spinAngleStart = Math.random() * 10 + 10;
+      spinTime = 0;
+      spinTimeTotal = Math.random() * 4 + 4 * 1000;
+      rotateWheel();
+    }
 
-                    // Configurar botón WhatsApp
-                    const mensaje = encodeURIComponent(`¡Quiero mi premio: ${premio}!`);
-                    whatsappButton.href = `https://wa.me/56974916892?text=${mensaje}`;
-                    whatsappButton.style.display = "inline-block";
-                    return;
-                }
+    function rotateWheel() {
+      spinTime += 30;
+      if(spinTime >= spinTimeTotal) {
+        stopRotateWheel();
+        return;
+      }
+      var spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+      startAngle += (spinAngle * Math.PI / 180);
+      drawRouletteWheel();
+      spinTimeout = setTimeout(rotateWheel, 30);
+    }
 
-                // Continuar girando
-                angle += Math.PI / (spinTimeTotal / 150);
-                angle %= 2 * Math.PI;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                drawWheel();
-                requestAnimationFrame(rotate);
-            }
-            rotate();
-        }
+    function stopRotateWheel() {
+      clearTimeout(spinTimeout);
+      var degrees = startAngle * 180 / Math.PI + 90;
+      var arcd = arc * 180 / Math.PI;
+      var index = Math.floor((360 - degrees % 360) / arcd);
+      ctx.save();
+      ctx.font = 'bold 24px Helvetica, Arial';
+      var text = options[index];
+      ctx.fillText(text, 250 - ctx.measureText(text).width / 2, 250 + 10);
+      ctx.restore();
 
-        spinButton.addEventListener("click", spinWheel);
-        drawWheel();
-    </script>
+      // Display result message
+      var message = `<p>¡Felicidades! Has ganado: <strong>${text}</strong></p>`;
+      message += `<p>Envíanos un pantallazo de tu resultado a nuestra WshatApo <a href="https://wa.me/56974916892?text=Quiero%20mi%20premio" target="_blank">Sede Virtual</a></p>`;
+      document.getElementById('result-message').innerHTML = message;
+    }
+
+    function easeOut(t, b, c, d) {
+      var ts = (t/=d)*t;
+      var tc = ts*t;
+      return b+c*(tc + -3*ts + 3*t);
+    }
+
+    drawRouletteWheel();
+  </script>
 </body>
 </html>
